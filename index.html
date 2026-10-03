@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setu Cafe POS - Enhanced Production</title>
+    <style>
+        :root {
+            --primary: #7c2d2d;
+            --bg: #f9f6f0;
+            --surface: #ffffff;
+            --text: #333333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            font-size: 13px; 
+        }
+        
+        /* Layout */
+        .left-panel { flex: 2; display: flex; flex-direction: column; border-right: 2px solid #ddd; }
+        .right-panel { flex: 1.3; padding: 12px; background-color: var(--surface); display: flex; flex-direction: column; box-shadow: -2px 0 5px rgba(0,0,0,0.05); overflow-y: auto; }
+        
+        /* Portal Brand Header */
+        .portal-brand-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: var(--surface);
+            padding: 10px 15px;
+            border-bottom: 2px solid #ddd;
+        }
+        .portal-logo {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            border-radius: 50%;
+        }
+        .portal-title-area h1 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--primary);
+            letter-spacing: 1px;
+        }
+        .portal-title-area p {
+            margin: 2px 0 0 0;
+            font-size: 11px;
+            color: #666;
+        }
+
+        /* Categories (Tabs) */
+        .category-tabs {
+            display: flex;
+            overflow-x: auto;
+            background: var(--surface);
+            padding: 8px;
+            border-bottom: 2px solid #ddd;
+            gap: 8px;
+        }
+        .tab-btn {
+            background-color: #eee;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            white-space: nowrap;
+            touch-action: manipulation;
+        }
+        .tab-btn.active { background-color: var(--primary); color: white; }
+        
+        /* Items Grid */
+        .items-container { padding: 15px; overflow-y: auto; flex-grow: 1; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+        .item-btn {
+            background-color: var(--surface);
+            border: 1px solid #ccc;
+            padding: 12px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.05);
+            touch-action: manipulation;
+        }
+        .item-btn:active { background-color: #e0e0e0; }
+        .item-btn span { display: block; color: var(--primary); margin-top: 5px; font-size: 14px; }
+        
+        /* Order Panel Elements */
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .header-row h2 { color: var(--primary); margin: 0; font-size: 16px; }
+        .admin-btn-header { background: #333; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        
+        .input-group { margin-bottom: 6px; }
+        .input-group label { font-weight: bold; display: block; margin-bottom: 2px; color: #d35400; font-size: 11px; }
+        .input-group input, .input-group select { width: 100%; padding: 6px; border: 1px solid var(--primary); border-radius: 4px; font-size: 12px; box-sizing: border-box; background: white; }
+        .input-row { display: flex; gap: 8px; }
+        .input-row .input-group { flex: 1; }
+
+        .order-list { flex-grow: 1; overflow-y: auto; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; margin-bottom: 6px; padding: 4px 0; max-height: 110px; }
+        .order-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding: 2px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
+        .qty-controls button { background: var(--primary); color: white; border: none; padding: 2px 5px; border-radius: 3px; cursor: pointer; font-size: 12px; margin: 0 2px; }
+        .qty-controls button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        .totals-section { background: #fdfbf7; padding: 6px; border-radius: 4px; border: 1px solid #eee; margin-bottom: 6px; }
+        .total-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
+        .total-row.grand { font-size: 15px; font-weight: bold; color: var(--primary); border-top: 1px solid #ddd; padding-top: 3px; margin-top: 3px; }
+
+        /* Open Orders Summary Card */
+        .open-orders-box { background: #fff8f0; border: 1px solid #f39c12; border-radius: 4px; padding: 6px; margin-bottom: 6px; max-height: 80px; overflow-y: auto; }
+        .open-orders-box h4 { margin: 0 0 4px 0; font-size: 12px; color: #d35400; display: flex; justify-content: space-between; align-items: center; }
+        .open-table-chip { display: inline-block; background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin: 2px; cursor: pointer; font-weight: bold; }
+        .open-table-chip:hover { background: #e67e22; }
+
+        /* Actions Workflow Buttons */
+        .action-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-bottom: 4px; }
+        .action-btns button { padding: 8px 2px; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; text-align: center; }
+        .btn-confirm { background-color: #27ae60; }
+        .btn-confirm:disabled { background-color: #95a5a6; cursor: not-allowed; opacity: 0.7; }
+        .btn-kot { background-color: #f39c12; }
+        .btn-kot:disabled { background-color: #95a5a6; cursor: not-allowed; opacity: 0.7; }
+        .btn-print { background-color: #2980b9; }
+        .btn-print:disabled { background-color: #95a5a6; cursor: not-allowed; opacity: 0.7; }
+        
+        .sub-action-btns { display: flex; gap: 4px; margin-bottom: 4px; }
+        .sub-action-btns button { flex: 1; padding: 6px; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; background: #8e44ad; }
+        .btn-clear { background-color: #e74c3c; width: 100%; padding: 5px; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; }
+
+        /* Secure PIN Modal & Admin Panel Overlay */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-card {
+            background: white; padding: 20px; border-radius: 8px; width: 320px; text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .modal-card h3 { margin-top: 0; color: var(--primary); }
+        .modal-card input, .modal-card select { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 15px; box-sizing: border-box; }
+        .modal-btns { display: flex; gap: 10px; }
+        .modal-btns button { flex: 1; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .btn-modal-confirm { background: #27ae60; color: white; }
+        .btn-modal-cancel { background: #e74c3c; color: white; }
+
+        /* Full Screen Admin Dashboard Modal */
+        .admin-dashboard {
+            background: white; width: 90vw; height: 90vh; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 5px 25px rgba(0,0,0,0.4);
+        }
+        .admin-header { background: var(--primary); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .admin-header h2 { margin: 0; font-size: 20px; }
+        .admin-close { background: none; border: none; color: white; font-size: 22px; cursor: pointer; }
+        .admin-body { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 20px; }
+        .admin-section { background: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 6px; }
+        .admin-section h4 { margin-top: 0; color: var(--primary); border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+        
+        .admin-grid-table { width: 100%; border-collapse: collapse; font-size: 12px; background: white; margin-top: 10px; }
+        .admin-grid-table th, .admin-grid-table td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        .admin-grid-table th { background: #eee; }
+        .admin-grid-table input, .admin-grid-table select { width: 100%; padding: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 3px; }
+        .form-inline-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+        .form-inline-row input, .form-inline-row select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+
+        /* Thermal Printer Styles */
+        #print-area { display: none; }
+        
+        @media print {
+            body, html { visibility: hidden; height: auto; background: white; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area {
+                display: block !important;
+                position: absolute; left: 0; top: 0; width: 80mm;
+                margin: 0; padding: 5mm;
+                font-family: 'Courier New', Courier, monospace;
+                color: black; background: white; z-index: 99999;
+            }
+            .is-kot .hide-on-kot { display: none !important; }
+            .is-kot .kot-text { font-size: 16px; font-weight: bold; text-align: center; border: 2px solid black; padding: 4px; margin-bottom: 8px; }
+            .is-kot td { font-size: 13px; font-weight: bold; padding: 3px 0; border-bottom: 1px dashed black;}
+            
+            .receipt-header { text-align: center; margin-bottom: 8px; }
+            .receipt-logo { width: 64px; height: 64px; object-fit: contain; margin: 0 auto 4px auto; display: block; border-radius: 50%; }
+            .receipt-header h3 { margin: 0; font-size: 16px; font-weight: bold; }
+            .receipt-header p { margin: 2px 0; font-size: 11px; }
+            .receipt-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 12px; }
+            .receipt-table th, .receipt-table td { text-align: left; padding: 3px 0; border-bottom: 1px dashed #000; }
+            .receipt-table th:last-child, .receipt-table td:last-child { text-align: right; }
+            .receipt-totals-box { border-top: 1px solid black; margin-top: 5px; padding-top: 5px; font-size: 12px; }
+            .receipt-total-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+            .receipt-total-row.grand { font-weight: bold; font-size: 14px; }
+            .receipt-footer { text-align: center; margin-top: 10px; font-size: 10px; }
+        }
+.receipt-footer { text-align: center; margin-top: 10px; font-size: 10px; }
+        }
+
+        /* Mobile Responsive Layout */
+        @media (max-width: 768px) {
+            body { 
+                flex-direction: column; 
+                height: 100vh; 
+                overflow-y: auto; 
+            }
+            .left-panel { 
+                flex: none; 
+                width: 100%; 
+                height: 55vh; 
+                border-right: none; 
+                border-bottom: 3px solid #7c2d2d; 
+            }
+            .right-panel { 
+                flex: none; 
+                width: 100%; 
+                height: auto; 
+                box-sizing: border-box; 
+            }
+        }
+    </style>
+</head>
+<body>
+    </style>
+</head>
+<body>
+
+    <div class="left-panel">
+        <div class="portal-brand-header">
+            <img src="logo.png" class="portal-logo" alt="Setu Cafe Logo" onerror="this.onerror=null; this.src='logo.jpg';">
+            <div class="portal-title-area">
+                <h1>SETU CAFE</h1>
+                <p>Laxman Jhula, Rishikesh • POS Billing Portal</p>
+            </div>
+        </div>
+
+        <div class="category-tabs" id="category-tabs"></div>
+        <div class="items-container">
+            <div class="grid" id="items-grid"></div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="header-row">
+            <h2>Current Order <span id="status-badge" style="font-size:11px; background:#e0e0e0; padding:2px 6px; border-radius:3px; color:#333;">[DRAFT]</span></h2>
+            <button class="admin-btn-header" onclick="openAdminPinModal()">⚙️ Admin Panel</button>
+        </div>
+        
+        <div class="input-row">
+            <div class="input-group">
+                <label for="table-no">Table No. *</label>
+                <input type="text" id="table-no" placeholder="Table #" required autocomplete="off" onblur="checkTableExistingOrder()" oninput="checkTableExistingOrder()">
+            </div>
+            <div class="input-group">
+                <label for="cust-name">Customer Name</label>
+                <input type="text" id="cust-name" placeholder="Optional" autocomplete="off" oninput="saveCurrentToActiveOrdersState()">
+            </div>
+        </div>
+        
+        <div class="input-group" style="margin-top: -3px;">
+            <label for="cust-phone">Mobile Number (Optional)</label>
+            <input type="tel" id="cust-phone" placeholder="10-digit mobile" maxlength="10" autocomplete="off" oninput="validatePhoneInput(this)">
+        </div>
+
+        <div class="input-group">
+            <label for="discount-select">Apply Discount</label>
+            <select id="discount-select" onchange="updateOrderUI()">
+                <option value="">No Discount</option>
+            </select>
+        </div>
+
+        <!-- Open Orders Section Widget -->
+        <div class="open-orders-box">
+            <h4>Active Open Tables <span id="open-count" style="font-weight:normal; font-size:11px;">(0 active)</span></h4>
+            <div id="open-tables-container" style="font-size: 11px; color: #555;">No active open tables right now.</div>
+        </div>
+        
+        <div class="order-list" id="order-list"></div>
+        
+        <div class="totals-section">
+            <div class="total-row"><span>Subtotal:</span> <span>₹<span id="sub-total">0</span></span></div>
+            <div class="total-row"><span>Discount Applied:</span> <span>- ₹<span id="disc-amount">0</span></span></div>
+            <div class="total-row grand"><span>Grand Total:</span> <span>₹<span id="grand-total">0</span></span></div>
+        </div>
+        
+        <!-- Workflow Action Buttons -->
+        <div class="action-btns">
+            <button class="btn-confirm" id="btn-confirm" onclick="confirmOrder()" disabled>1. Confirm</button>
+            <button class="btn-kot" id="btn-kot" onclick="printReceipt('KOT')" disabled>2. Print KOT</button>
+            <button class="btn-print" id="btn-print-bill" onclick="initiateBillPrint()" disabled>3. Print Bill</button>
+        </div>
+
+        <div class="sub-action-btns">
+            <button onclick="openShiftTableModal()" style="width: 100%;">🔄 Shift Table</button>
+        </div>
+
+        <button class="btn-clear" onclick="clearOrder()">Clear / Reset Order</button>
+    </div>
+
+    <!-- Hidden PIN Modal Overlay -->
+    <div class="modal-overlay" id="admin-pin-modal">
+        <div class="modal-card">
+            <h3>Admin Authentication</h3>
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Enter PIN (Default: 1623)</p>
+            <input type="password" id="admin-pin-input" maxlength="6" placeholder="••••">
+            <div class="modal-btns">
+                <button class="btn-modal-confirm" onclick="verifyAdminPin()">Unlock</button>
+                <button class="btn-modal-cancel" onclick="closeAdminPinModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shift Table Modal -->
+    <div class="modal-overlay" id="shift-table-modal">
+        <div class="modal-card">
+            <h3>Shift Table</h3>
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Move current order to a new table number:</p>
+            <input type="text" id="target-table-no" placeholder="New Table Number">
+            <div class="modal-btns">
+                <button class="btn-modal-confirm" onclick="executeShiftTable()">Confirm Shift</button>
+                <button class="btn-modal-cancel" onclick="closeShiftTableModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Mode Modal -->
+    <div class="modal-overlay" id="payment-modal">
+        <div class="modal-card" style="width: 300px;">
+            <h3>Select Payment Mode</h3>
+            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Choose how the customer is paying:</p>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                <button onclick="finalizeBillPrint('Cash')" style="padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cash</button>
+                <button onclick="finalizeBillPrint('UPI / QR')" style="padding: 10px; background: #2980b9; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">UPI / QR Code</button>
+                <button onclick="finalizeBillPrint('Card')" style="padding: 10px; background: #8e44ad; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Credit / Debit Card</button>
+            </div>
+            <button onclick="closePaymentModal()" style="background: #e74c3c; color: white; border: none; padding: 6px; width: 100%; border-radius: 4px; cursor: pointer;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Full Screen Admin Dashboard Modal -->
+    <div class="modal-overlay" id="admin-dashboard-modal">
+        <div class="admin-dashboard">
+            <div class="admin-header">
+                <h2>Setu Cafe - Admin Control Center</h2>
+                <button class="admin-close" onclick="closeAdminDashboard()">&times;</button>
+            </div>
+            <div class="admin-body">
+                <div class="admin-section">
+                    <h4>End of Day (EOD) Operations & Reports</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Download complete sales logs including item discounts and summary reports in CSV format.</p>
+                    <button onclick="endOfDay()" style="background: #2980b9; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer;">Download Daily Sales CSV Sheets</button>
+                </div>
+
+                <div class="admin-section">
+                    <h4>Discount Tier Editor</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 5px;">Configure custom discount names and percentage rules available to cashiers.</p>
+                    <table class="admin-grid-table">
+                        <thead>
+                            <tr>
+                                <th>Discount Title</th>
+                                <th>Percentage (%)</th>
+                                <th style="width: 80px; text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="discount-admin-tbody"></tbody>
+                    </table>
+                    <div class="form-inline-row">
+                        <input type="text" id="new-disc-name" placeholder="Discount Title (e.g., Staff Special)" style="flex: 2;">
+                        <input type="number" id="new-disc-pct" placeholder="Percentage %" style="flex: 1;" min="0" max="100">
+                        <button onclick="addDiscountRule()" style="background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add Rule</button>
+                    </div>
+                </div>
+
+                <div class="admin-section">
+                    <h4>Menu Sections (Categories) Management</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 5px;">Create brand new sections (tabs) or delete existing categories.</p>
+                    <table class="admin-grid-table">
+                        <thead>
+                            <tr>
+                                <th>Section / Category Name</th>
+                                <th style="width: 100px; text-align: center;">Items Count</th>
+                                <th style="width: 80px; text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="category-admin-tbody"></tbody>
+                    </table>
+                    <div class="form-inline-row">
+                        <input type="text" id="new-cat-name" placeholder="New Section Name (e.g., Signature Desserts)" style="flex: 3;">
+                        <button onclick="addNewCategory()" style="background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; flex: 1;">Create Section</button>
+                    </div>
+                </div>
+
+                <div class="admin-section">
+                    <h4>Menu Items Management</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 5px;">Add new items into any section, modify existing names/prices, or remove items.</p>
+                    <table class="admin-grid-table">
+                        <thead>
+                            <tr>
+                                <th>Category / Section</th>
+                                <th>Item Name</th>
+                                <th>Price (₹)</th>
+                                <th style="width: 120px; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="menu-admin-tbody"></tbody>
+                    </table>
+                    <div class="form-inline-row">
+                        <select id="new-item-cat" style="flex: 1.5;"></select>
+                        <input type="text" id="new-item-name" placeholder="New Item Name" style="flex: 2;">
+                        <input type="number" id="new-item-price" placeholder="Price (₹)" style="flex: 1;">
+                        <button onclick="addNewMenuItem()" style="background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add Item</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Print Area -->
+    <div id="print-area"></div>
+
+    <script>
+        const ADMIN_PIN = "1623"; 
+
+        let discountRules = JSON.parse(localStorage.getItem('setu_discountRules')) || [
+            { id: 1, name: "Happy Hours", percent: 10 },
+            { id: 2, name: "Staff Special", percent: 20 },
+            { id: 3, name: "VIP Guest", percent: 15 }
+        ];
+
+        let menuData = JSON.parse(localStorage.getItem('setu_menuData')) || {
+            "South Indian Corner": [
+                { name: "Dosa Plain", price: 100 }, { name: "Dosa Masala", price: 120 },
+                { name: "Ghee Podi Dosa Plain", price: 120 }, { name: "Ghee Podi Dosa Masala", price: 140 },
+                { name: "Butter (Benne) Dosa Plain", price: 120 }, { name: "Butter (Benne) Dosa Masala", price: 140 },
+                { name: "Butter Podi Dosa Plain", price: 140 }, { name: "Butter Podi Dosa Masala", price: 160 },
+                { name: "Open Butter Masala Dosa", price: 180 },
+                { name: "Chatpata Dosa Plain", price: 120 }, { name: "Chatpata Dosa Masala", price: 140 },
+                { name: "Set Dosa (4 pcs)", price: 130 },
+                { name: "Doffle (Waffle Dosa) Plain", price: 120 }, { name: "Doffle (Waffle Dosa) Masala", price: 140 },
+                { name: "Idli (2 pcs) Plain", price: 80 }, { name: "Idli (2 pcs) Ghee Podi", price: 100 },
+                { name: "Thatte Idli (1 pc) Plain", price: 100 }, { name: "Thatte Idli (1 pc) Ghee Podi", price: 120 },
+                { name: "Appe Plain", price: 120 }, { name: "Appe Onion & Tomato", price: 140 },
+                { name: "Uttapam Plain", price: 120 }, { name: "Uttapam Onion", price: 120 }, { name: "Uttapam Tomato", price: 120 }
+            ],
+            "Street Chaat Treats": [
+                { name: "Golgappe (6 pcs)", price: 80 }, { name: "Sukhi Puri Chaat", price: 100 },
+                { name: "Bhel Puri", price: 120 }, { name: "Dahi Puri", price: 130 }
+            ],
+            "Comfort Bowls & Maggi": [
+                { name: "Homestyle Poha", price: 100 }, { name: "South Indian Upma", price: 90 },
+                { name: "Plain Maggi", price: 90 }, { name: "Veggie Maggi", price: 110 },
+                { name: "Cheesy Veggie Maggi", price: 150 }
+            ],
+            "Sandwiches & Toasties": [
+                { name: "Veg Grilled Sandwich", price: 160 }, { name: "Aloo Grilled Sandwich", price: 160 },
+                { name: "Cheese Chutney Grilled", price: 180 }, { name: "Veg Cheese Grilled", price: 200 },
+                { name: "Bread Butter Plain", price: 60 }, { name: "Bread Butter Toast", price: 70 },
+                { name: "Bread Jam Plain", price: 60 }, { name: "Bread Jam Toast", price: 70 },
+                { name: "Bread Butter Jam Plain", price: 70 }, { name: "Bread Butter Jam Toast", price: 80 }
+            ],
+            "Sides & Pancakes": [
+                { name: "French Fries Plain", price: 100 }, { name: "French Fries Chatpata", price: 120 },
+                { name: "Banana Honey Pancake", price: 150 }, { name: "Banana Chocolate Pancake", price: 200 }
+            ],
+            "Hot Brews": [
+                { name: "Regular Kadak Chai", price: 40 }, { name: "Fresh Ginger Chai", price: 50 },
+                { name: "Setu Special Masala Tea", price: 60 }, { name: "Lemon Ginger Honey", price: 100 },
+                { name: "Hot Coffee", price: 60 }, { name: "South Indian Filter Coffee", price: 100 },
+                { name: "Signature Hot Chocolate", price: 250 }, { name: "Fresh Plain Milk", price: 80 },
+                { name: "Golden Turmeric Milk", price: 120 }
+            ],
+            "Cold Refreshers": [
+                { name: "Classic Cold Coffee", price: 150 }, { name: "Fresh Banana Shake", price: 150 },
+                { name: "Rich Chocolate Shake", price: 200 }, { name: "Fragrant Rose Milk", price: 150 },
+                { name: "Spiced Butter Milk", price: 100 }, { name: "Arabian Pulpy Grape Juice", price: 150 },
+                { name: "Soft Drinks (MRP)", price: 0 }, { name: "Mineral Water (MRP)", price: 0 }
+            ]
+        };
+
+        let currentOrder = [];
+        let allDailyOrders = JSON.parse(localStorage.getItem('setu_allDailyOrders')) || []; 
+        let activeOpenOrders = JSON.parse(localStorage.getItem('setu_activeOpenOrders')) || {}; 
+        let currentCategory = Object.keys(menuData)[0];
+        let currentOrderStatus = 'DRAFT'; // 'DRAFT' -> 'CONFIRMED' -> 'KOT_PRINTED'
+        let dailyOrderCounters = JSON.parse(localStorage.getItem('setu_dailyCounters')) || {}; 
+
+        function saveDataToStorage() {
+            localStorage.setItem('setu_menuData', JSON.stringify(menuData));
+            localStorage.setItem('setu_discountRules', JSON.stringify(discountRules));
+            localStorage.setItem('setu_activeOpenOrders', JSON.stringify(activeOpenOrders));
+            localStorage.setItem('setu_allDailyOrders', JSON.stringify(allDailyOrders));
+            localStorage.setItem('setu_dailyCounters', JSON.stringify(dailyOrderCounters));
+        }
+
+        function initApp() {
+            if (!menuData[currentCategory] && Object.keys(menuData).length > 0) {
+                currentCategory = Object.keys(menuData)[0];
+            }
+            renderTabs();
+            renderItems(currentCategory);
+            renderDiscountDropdown();
+            renderOpenOrdersUI();
+            updateWorkflowButtons();
+        }
+
+        function renderTabs() {
+            const tabsContainer = document.getElementById('category-tabs');
+            tabsContainer.innerHTML = '';
+            const categories = Object.keys(menuData);
+            if(categories.length > 0 && !categories.includes(currentCategory)) {
+                currentCategory = categories[0];
+            }
+            categories.forEach(category => {
+                let btn = document.createElement('button');
+                btn.className = `tab-btn ${category === currentCategory ? 'active' : ''}`;
+                btn.innerText = category;
+                btn.onclick = () => {
+                    currentCategory = category;
+                    renderTabs();
+                    renderItems(category);
+                };
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function renderItems(category) {
+            const grid = document.getElementById('items-grid');
+            grid.innerHTML = '';
+            if(!menuData[category] || menuData[category].length === 0) {
+                grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #777; padding: 20px;">No items in this section yet. Use Admin Panel to add items.</div>`;
+                return;
+            }
+            menuData[category].forEach(item => {
+                let btn = document.createElement('button');
+                btn.className = 'item-btn';
+                let displayPrice = item.price > 0 ? `₹${item.price}` : 'MRP';
+                btn.innerHTML = `${item.name} <span>${displayPrice}</span>`;
+                btn.onclick = () => addToOrder(item);
+                grid.appendChild(btn);
+            });
+        }
+
+        function renderDiscountDropdown() {
+            const select = document.getElementById('discount-select');
+            let currentVal = select.value;
+            select.innerHTML = '<option value="">No Discount</option>';
+            discountRules.forEach(rule => {
+                let opt = document.createElement('option');
+                opt.value = rule.percent;
+                opt.innerText = `${rule.name} (${rule.percent}%)`;
+                select.appendChild(opt);
+            });
+            select.value = currentVal;
+        }
+
+        function validatePhoneInput(input) {
+            input.value = input.value.replace(/\D/g, '').slice(0, 10);
+        }
+
+        function checkTableExistingOrder() {
+            const tableNo = document.getElementById('table-no').value.trim();
+            if (!tableNo) return;
+
+            if (activeOpenOrders[tableNo]) {
+                let existing = activeOpenOrders[tableNo];
+                currentOrder = JSON.parse(JSON.stringify(existing.items));
+                document.getElementById('cust-name').value = existing.custName || '';
+                document.getElementById('cust-phone').value = existing.custPhone || '';
+                document.getElementById('discount-select').value = existing.discountPct || '';
+                currentOrderStatus = existing.orderStatus || 'DRAFT';
+            } else {
+                currentOrder = [];
+                currentOrderStatus = 'DRAFT';
+                document.getElementById('cust-name').value = '';
+                document.getElementById('cust-phone').value = '';
+                document.getElementById('discount-select').value = '';
+            }
+            updateOrderUI();
+            updateWorkflowButtons();
+        }
+
+        function renderOpenOrdersUI() {
+            const container = document.getElementById('open-tables-container');
+            const countSpan = document.getElementById('open-count');
+            const tableKeys = Object.keys(activeOpenOrders);
+            
+            countSpan.innerText = `(${tableKeys.length} active)`;
+            if (tableKeys.length === 0) {
+                container.innerHTML = 'No active open tables right now.';
+                return;
+            }
+
+            container.innerHTML = '';
+            tableKeys.forEach(tableNo => {
+                let chip = document.createElement('span');
+                chip.className = 'open-table-chip';
+                chip.innerText = `Table ${tableNo} [${activeOpenOrders[tableNo].orderStatus}]`;
+                chip.title = `Click to load Table ${tableNo}`;
+                chip.onclick = () => {
+                    document.getElementById('table-no').value = tableNo;
+                    checkTableExistingOrder();
+                };
+                container.appendChild(chip);
+            });
+        }
+
+        function addToOrder(item) {
+            const tableInput = document.getElementById('table-no');
+            const tableNo = tableInput.value.trim();
+            
+            if (!tableNo) {
+                alert("Please enter the Table Number first!");
+                tableInput.focus();
+                return;
+            }
+
+            let priceToUse = item.price;
+            if (item.price === 0) {
+                let customPrice = prompt(`Enter price for ${item.name} (MRP):`, "0");
+                if (customPrice === null || isNaN(customPrice)) return;
+                priceToUse = parseFloat(customPrice);
+            }
+
+            const existing = currentOrder.find(i => i.name === item.name && i.price === priceToUse);
+            if (existing) {
+                existing.qty += 1;
+                if (currentOrderStatus === 'KOT_PRINTED') {
+                    existing.unprintedQty = (existing.unprintedQty || 0) + 1;
+                }
+            } else {
+                currentOrder.push({ 
+                    name: item.name, 
+                    price: priceToUse, 
+                    qty: 1, 
+                    printedQty: currentOrderStatus === 'KOT_PRINTED' ? 0 : 1,
+                    unprintedQty: currentOrderStatus === 'KOT_PRINTED' ? 1 : 0
+                });
+            }
+            
+            updateOrderUI();
+            saveCurrentToActiveOrdersState();
+            updateWorkflowButtons();
+        }
+
+        function updateQty(index, delta) {
+            let item = currentOrder[index];
+
+            if (currentOrderStatus === 'KOT_PRINTED') {
+                let alreadyPrinted = item.printedQty || 0;
+                let currentTotalQty = item.qty;
+                let newTotalQty = currentTotalQty + delta;
+
+                if (newTotalQty < alreadyPrinted) {
+                    alert("Cannot decrease quantity below what has already been sent to the kitchen!");
+                    return;
+                }
+                
+                let diff = delta;
+                item.qty = newTotalQty;
+                item.unprintedQty = (item.unprintedQty || 0) + diff;
+                if(item.unprintedQty < 0) item.unprintedQty = 0;
+
+                if (item.qty <= 0) {
+                    currentOrder.splice(index, 1);
+                }
+            } else {
+                item.qty += delta;
+                if (item.qty <= 0) {
+                    currentOrder.splice(index, 1);
+                }
+            }
+
+            updateOrderUI();
+            saveCurrentToActiveOrdersState();
+            updateWorkflowButtons();
+        }
+
+        function saveCurrentToActiveOrdersState() {
+            const tableNo = document.getElementById('table-no').value.trim();
+            if(!tableNo) return;
+            
+            if(currentOrder.length === 0) {
+                if(activeOpenOrders[tableNo]) {
+                    delete activeOpenOrders[tableNo];
+                    saveDataToStorage();
+                }
+                renderOpenOrdersUI();
+                return;
+            }
+
+            activeOpenOrders[tableNo] = {
+                items: JSON.parse(JSON.stringify(currentOrder)),
+                custName: document.getElementById('cust-name').value.trim(),
+                custPhone: document.getElementById('cust-phone').value.trim(),
+                discountPct: document.getElementById('discount-select').value,
+                orderStatus: currentOrderStatus
+            };
+            saveDataToStorage();
+            renderOpenOrdersUI();
+        }
+
+        function updateOrderUI() {
+            const list = document.getElementById('order-list');
+            list.innerHTML = '';
+            let subtotal = 0;
+
+            currentOrder.forEach((item, index) => {
+                let itemTotal = item.price * item.qty;
+                subtotal += itemTotal;
+                
+                let isLockedDown = (currentOrderStatus === 'KOT_PRINTED' && item.qty <= (item.printedQty || 0));
+
+                list.innerHTML += `
+                    <div class="order-item">
+                        <div style="flex:2">${item.name} ${item.unprintedQty > 0 ? '<span style="color:#d35400; font-size:10px; font-weight:bold;">(New)</span>' : ''}<br><small>₹${item.price}</small></div>
+                        <div class="qty-controls" style="flex:1; text-align:center;">
+                            <button onclick="updateQty(${index}, -1)" ${isLockedDown ? 'disabled' : ''}>-</button>
+                            ${item.qty}
+                            <button onclick="updateQty(${index}, 1)">+</button>
+                        </div>
+                        <div style="flex:1; text-align:right;">₹${itemTotal}</div>
+                    </div>
+                `;
+            });
+
+            let discPct = parseFloat(document.getElementById('discount-select').value) || 0;
+            let discountAmount = (subtotal * discPct) / 100;
+            let grandTotal = subtotal - discountAmount;
+
+            document.getElementById('sub-total').innerText = subtotal;
+            document.getElementById('disc-amount').innerText = discountAmount.toFixed(2);
+            document.getElementById('grand-total').innerText = Math.round(grandTotal);
+
+            const badge = document.getElementById('status-badge');
+            badge.innerText = `[${currentOrderStatus}]`;
+            if(currentOrderStatus === 'DRAFT') badge.style.background = '#e0e0e0';
+            else if(currentOrderStatus === 'CONFIRMED') badge.style.background = '#f39c12', badge.style.color = 'white';
+            else if(currentOrderStatus === 'KOT_PRINTED') badge.style.background = '#27ae60', badge.style.color = 'white';
+
+            saveCurrentToActiveOrdersState();
+        }
+
+        function updateWorkflowButtons() {
+            const btnConfirm = document.getElementById('btn-confirm');
+            const btnKot = document.getElementById('btn-kot');
+            const btnPrintBill = document.getElementById('btn-print-bill');
+
+            if (currentOrderStatus === 'DRAFT') {
+                btnConfirm.disabled = (currentOrder.length === 0);
+                btnKot.disabled = true;
+                btnPrintBill.disabled = true;
+            } else if (currentOrderStatus === 'CONFIRMED') {
+                btnConfirm.disabled = true;
+                btnKot.disabled = false;
+                btnPrintBill.disabled = true;
+            } else if (currentOrderStatus === 'KOT_PRINTED') {
+                btnConfirm.disabled = true;
+                let hasUnprintedAdditions = currentOrder.some(i => (i.unprintedQty || 0) > 0);
+                btnKot.disabled = !hasUnprintedAdditions;
+                btnKot.innerText = hasUnprintedAdditions ? '2. Print Add-on KOT' : '2. Print KOT';
+                btnPrintBill.disabled = false;
+            }
+        }
+
+        function confirmOrder() {
+            if (currentOrder.length === 0) {
+                alert("Order is empty!");
+                return;
+            }
+            currentOrderStatus = 'CONFIRMED';
+            updateOrderUI();
+            updateWorkflowButtons();
+            alert("Order confirmed! Items are now locked. You can now print the KOT.");
+        }
+
+        function clearOrder() {
+            const tableNo = document.getElementById('table-no').value.trim();
+            if (tableNo && activeOpenOrders[tableNo]) {
+                delete activeOpenOrders[tableNo];
+                saveDataToStorage();
+            }
+            currentOrder = [];
+            currentOrderStatus = 'DRAFT';
+            document.getElementById('table-no').value = '';
+            document.getElementById('cust-name').value = '';
+            document.getElementById('cust-phone').value = '';
+            document.getElementById('discount-select').value = '';
+            updateOrderUI();
+            updateWorkflowButtons();
+            renderOpenOrdersUI();
+        }
+
+        function printReceipt(type) {
+            if(type === 'KOT') {
+                if (currentOrderStatus === 'CONFIRMED') {
+                    currentOrderStatus = 'KOT_PRINTED';
+                    currentOrder.forEach(item => {
+                        item.printedQty = item.qty;
+                        item.unprintedQty = 0;
+                    });
+                    updateOrderUI();
+                    updateWorkflowButtons();
+                    executePrint('KOT', '', false);
+                } else if (currentOrderStatus === 'KOT_PRINTED') {
+                    executePrint('KOT', '', true);
+                    currentOrder.forEach(item => {
+                        item.printedQty = item.qty;
+                        item.unprintedQty = 0;
+                    });
+                    updateOrderUI();
+                    updateWorkflowButtons();
+                }
+            }
+        }
+
+        function initiateBillPrint() {
+            if (currentOrderStatus !== 'KOT_PRINTED') {
+                alert("You must print KOT before printing the bill!");
+                return;
+            }
+            const tableNo = document.getElementById('table-no').value.trim();
+            if (!tableNo) {
+                alert("Table number is mandatory!");
+                return;
+            }
+            const custPhone = document.getElementById('cust-phone').value.trim();
+            if (custPhone && custPhone.length !== 10) {
+                alert("Mobile number must be exactly 10 digits if provided!");
+                return;
+            }
+            document.getElementById('payment-modal').style.display = 'flex';
+        }
+
+        function closePaymentModal() {
+            document.getElementById('payment-modal').style.display = 'none';
+        }
+
+        function finalizeBillPrint(paymentMode) {
+            closePaymentModal();
+            executePrint('BILL', paymentMode, false);
+        }
+
+        function executePrint(type, paymentMode, isAddonKOT) {
+            const tableNo = document.getElementById('table-no').value.trim();
+            const custName = document.getElementById('cust-name').value.trim();
+            const custPhone = document.getElementById('cust-phone').value.trim();
+
+            const printArea = document.getElementById('print-area');
+            const orderDate = new Date();
+            
+            const dayStr = String(orderDate.getDate()).padStart(2, '0');
+            const monthStr = String(orderDate.getMonth() + 1).padStart(2, '0');
+            const yearStr = orderDate.getFullYear();
+            const dateKey = `${dayStr}${monthStr}${yearStr}`;
+
+            let orderId = "";
+            if (type === 'BILL') {
+                if (!dailyOrderCounters[dateKey]) {
+                    dailyOrderCounters[dateKey] = 1;
+                } else {
+                    dailyOrderCounters[dateKey]++;
+                }
+                orderId = `${dateKey}_${dailyOrderCounters[dateKey]}`;
+            } else {
+                orderId = `${dateKey}_KOT`;
+            }
+
+            let subtotal = 0;
+            printArea.className = type === 'KOT' ? 'is-kot' : 'is-bill';
+
+            let receiptHTML = `
+                <div class="receipt-header">
+                    ${type === 'BILL' ? `<img src="logo.png" class="receipt-logo" alt="Setu Cafe Logo" onerror="this.onerror=null; this.src='logo.jpg';">` : ''}
+                    ${type === 'KOT' ? `<div class="kot-text">${isAddonKOT ? 'ADD-ON KOT' : 'KOT'} - TABLE ${tableNo}</div>` : `<h3>SETU CAFE</h3><p>Laxman Jhula, Rishikesh</p>`}
+                    <p class="hide-on-kot">Table: ${tableNo} ${custName ? '| ' + custName : ''} ${custPhone ? '(' + custPhone + ')' : ''}</p>
+                    <p class="hide-on-kot">Time: ${orderDate.toLocaleTimeString()} | ID: ${orderId}</p>
+                </div>
+                <table class="receipt-table">
+                    <tr>
+                        <th>Item</th>
+                        <th style="text-align:center">Qty</th>
+                        <th class="hide-on-kot">Amt</th>
+                    </tr>
+            `;
+
+            currentOrder.forEach(item => {
+                let targetQty = type === 'KOT' && isAddonKOT ? (item.unprintedQty || 0) : item.qty;
+                if (targetQty <= 0 && type === 'KOT' && isAddonKOT) return;
+
+                let rowAmt = item.price * (type === 'KOT' && isAddonKOT ? targetQty : item.qty);
+                if(type === 'BILL') subtotal += item.price * item.qty;
+
+                receiptHTML += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td style="text-align:center">${targetQty}</td>
+                        <td class="hide-on-kot">${type === 'BILL' ? item.price * item.qty : rowAmt}</td>
+                    </tr>`;
+            });
+
+            receiptHTML += `</table>`;
+            
+            if (type === 'BILL') {
+                let discPct = parseFloat(document.getElementById('discount-select').value) || 0;
+                let discountAmt = (subtotal * discPct) / 100;
+                let finalTotal = Math.round(subtotal - discountAmt);
+
+                receiptHTML += `
+                    <div class="receipt-totals-box hide-on-kot">
+                        <div class="receipt-total-row"><span>Subtotal:</span><span>Rs. ${subtotal}</span></div>
+                        ${discountAmt > 0 ? `<div class="receipt-total-row"><span>Discount (${discPct}\%):</span><span>- Rs.${discountAmt.toFixed(2)}</span></div>` : ''}
+                        <div class="receipt-total-row grand"><span>Grand Total:</span><span>Rs. ${finalTotal}</span></div>
+                        <div class="receipt-total-row" style="margin-top: 4px; font-weight: bold;"><span>Payment Mode:</span><span>${paymentMode}</span></div>
+                    </div>
+                    <div class="receipt-footer hide-on-kot">
+                        <p>Thank you for visiting Setu Cafe!</p>
+                        <p>Scan table QR for Feedback & Reviews</p>
+                    </div>`;
+
+                currentOrder.forEach(item => {
+                    let rowAmt = item.price * item.qty;
+                    let itemDiscount = (rowAmt * discPct) / 100;
+                    let itemTotalAfterDisc = rowAmt - itemDiscount;
+
+                    allDailyOrders.push({
+                        orderId: orderId,
+                        date: orderDate.toLocaleDateString(),
+                        time: orderDate.toLocaleTimeString(),
+                        table: tableNo,
+                        customerName: custName || "Walk-in",
+                        customerPhone: custPhone || "-",
+                        paymentMode: paymentMode,
+                        itemName: item.name,
+                        qty: item.qty,
+                        price: rowAmt,
+                        discount: itemDiscount.toFixed(2),
+                        total: itemTotalAfterDisc.toFixed(2)
+                    });
+                });
+
+                if (activeOpenOrders[tableNo]) {
+                    delete activeOpenOrders[tableNo];
+                }
+                saveDataToStorage();
+            }
+
+            printArea.innerHTML = receiptHTML;
+            window.print();
+
+            if (type === 'BILL') {
+                clearOrder();
+            }
+            renderOpenOrdersUI();
+        }
+
+        /* Shift Table Functions */
+        function openShiftTableModal() {
+            const tableNo = document.getElementById('table-no').value.trim();
+            if (!tableNo || currentOrder.length === 0) {
+                alert("Load an active table order first before shifting.");
+                return;
+            }
+            document.getElementById('target-table-no').value = '';
+            document.getElementById('shift-table-modal').style.display = 'flex';
+            document.getElementById('target-table-no').focus();
+        }
+
+        function closeShiftTableModal() {
+            document.getElementById('shift-table-modal').style.display = 'none';
+        }
+
+        function executeShiftTable() {
+            const oldTable = document.getElementById('table-no').value.trim();
+            const newTable = document.getElementById('target-table-no').value.trim();
+
+            if (!newTable) {
+                alert("Please enter a valid target table number.");
+                return;
+            }
+            if (activeOpenOrders[newTable]) {
+                alert(`Table ${newTable} already has an active order! Choose an empty table.`);
+                return;
+            }
+
+            if (activeOpenOrders[oldTable]) {
+                delete activeOpenOrders[oldTable];
+            }
+
+            document.getElementById('table-no').value = newTable;
+            saveCurrentToActiveOrdersState();
+            closeShiftTableModal();
+            alert(`Order successfully shifted from Table ${oldTable} to Table ${newTable}.`);
+            renderOpenOrdersUI();
+        }
+
+        function openAdminPinModal() {
+            document.getElementById('admin-pin-input').value = '';
+            document.getElementById('admin-pin-modal').style.display = 'flex';
+            document.getElementById('admin-pin-input').focus();
+        }
+
+        function closeAdminPinModal() {
+            document.getElementById('admin-pin-modal').style.display = 'none';
+        }
+
+        function verifyAdminPin() {
+            const enteredPin = document.getElementById('admin-pin-input').value;
+            if (enteredPin === ADMIN_PIN) {
+                closeAdminPinModal();
+                openAdminDashboard();
+            } else {
+                alert("Incorrect PIN code.");
+                document.getElementById('admin-pin-input').value = '';
+                document.getElementById('admin-pin-input').focus();
+            }
+        }
+
+        function openAdminDashboard() {
+            renderAdminDiscounts();
+            renderAdminCategories();
+            renderAdminMenuEditor();
+            populateCategoryDropdown();
+            document.getElementById('admin-dashboard-modal').style.display = 'flex';
+        }
+
+        function closeAdminDashboard() {
+            document.getElementById('admin-dashboard-modal').style.display = 'none';
+            renderDiscountDropdown();
+            renderTabs();
+            renderItems(currentCategory);
+            saveDataToStorage();
+        }
+
+        function renderAdminDiscounts() {
+            const tbody = document.getElementById('discount-admin-tbody');
+            tbody.innerHTML = '';
+            discountRules.forEach((rule, idx) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><input type="text" value="${rule.name}" onchange="updateDiscountRule(${idx}, 'name', this.value)"></td>
+                        <td><input type="number" value="${rule.percent}" min="0" max="100" onchange="updateDiscountRule(${idx}, 'percent', this.value)"></td>
+                        <td style="text-align: center;"><button onclick="deleteDiscountRule(${idx})" style="background:#e74c3c; color:white; border:none; padding:3px 8px; border-radius:3px; cursor:pointer;">Delete</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function updateDiscountRule(index, field, value) {
+            if(field === 'percent') {
+                discountRules[index].percent = parseFloat(value) || 0;
+            } else {
+                discountRules[index].name = value;
+            }
+            saveDataToStorage();
+        }
+
+        function addDiscountRule() {
+            let name = document.getElementById('new-disc-name').value.trim();
+            let pct = parseFloat(document.getElementById('new-disc-pct').value);
+            if(!name || isNaN(pct)) {
+                alert("Please enter a valid discount title and percentage.");
+                return;
+            }
+            discountRules.push({ id: Date.now(), name: name, percent: pct });
+            document.getElementById('new-disc-name').value = '';
+            document.getElementById('new-disc-pct').value = '';
+            renderAdminDiscounts();
+            saveDataToStorage();
+        }
+
+        function deleteDiscountRule(index) {
+            discountRules.splice(index, 1);
+            renderAdminDiscounts();
+            saveDataToStorage();
+        }
+
+        function renderAdminCategories() {
+            const tbody = document.getElementById('category-admin-tbody');
+            tbody.innerHTML = '';
+            for (const [cat, items] of Object.entries(menuData)) {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${cat}</b></td>
+                        <td style="text-align: center;">${items.length} items</td>
+                        <td style="text-align: center;"><button onclick="deleteCategory('${cat}')" style="background:#e74c3c; color:white; border:none; padding:3px 8px; border-radius:3px; cursor:pointer;">Delete</button></td>
+                    </tr>
+                `;
+            }
+        }
+
+        function addNewCategory() {
+            let catName = document.getElementById('new-cat-name').value.trim();
+            if(!catName) {
+                alert("Please enter a valid section name.");
+                return;
+            }
+            if(menuData[catName]) {
+                alert("Section already exists!");
+                return;
+            }
+            menuData[catName] = [];
+            document.getElementById('new-cat-name').value = '';
+            renderAdminCategories();
+            populateCategoryDropdown();
+            renderAdminMenuEditor();
+            saveDataToStorage();
+        }
+
+        function deleteCategory(catName) {
+            if(Object.keys(menuData).length <= 1) {
+                alert("You must keep at least one menu section.");
+                return;
+            }
+            if(menuData[catName] && menuData[catName].length > 0) {
+                if(!confirm(`Section "${catName}" has ${menuData[catName].length} items inside it. Are you sure you want to delete this section and all its items?`)) {
+                    return;
+                }
+            }
+            delete menuData[catName];
+            if(currentCategory === catName) {
+                currentCategory = Object.keys(menuData)[0];
+            }
+            renderAdminCategories();
+            populateCategoryDropdown();
+            renderAdminMenuEditor();
+            saveDataToStorage();
+        }
+
+        function populateCategoryDropdown() {
+            const sel = document.getElementById('new-item-cat');
+            sel.innerHTML = '';
+            Object.keys(menuData).forEach(cat => {
+                sel.innerHTML += `<option value="${cat}">${cat}</option>`;
+            });
+        }
+
+        function renderAdminMenuEditor() {
+            const tbody = document.getElementById('menu-admin-tbody');
+            tbody.innerHTML = '';
+            for (const [cat, items] of Object.entries(menuData)) {
+                items.forEach((item, itemIdx) => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><b>${cat}</b></td>
+                            <td><input type="text" value="${item.name}" onchange="editMenuItem('${cat}', ${itemIdx}, 'name', this.value)"></td>
+                            <td><input type="number" value="${item.price}" onchange="editMenuItem('${cat}', ${itemIdx}, 'price', this.value)"></td>
+                            <td style="text-align: center;"><button onclick="deleteMenuItem('${cat}', ${itemIdx})" style="background:#e74c3c; color:white; border:none; padding:3px 8px; border-radius:3px; cursor:pointer;">Delete</button></td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        function editMenuItem(category, index, field, val) {
+            if(field === 'price') {
+                menuData[category][index].price = parseFloat(val) || 0;
+            } else {
+                menuData[category][index].name = val;
+            }
+            saveDataToStorage();
+        }
+
+        function deleteMenuItem(category, index) {
+            menuData[category].splice(index, 1);
+            renderAdminMenuEditor();
+            renderAdminCategories();
+            saveDataToStorage();
+        }
+
+        function addNewMenuItem() {
+            let cat = document.getElementById('new-item-cat').value;
+            let name = document.getElementById('new-item-name').value.trim();
+            let price = parseFloat(document.getElementById('new-item-price').value);
+
+            if(!cat) {
+                alert("Please select or create a menu section first.");
+                return;
+            }
+            if(!name || isNaN(price)) {
+                alert("Please provide a valid item name and price. If MRP item, put 0.");
+                return;
+            }
+
+            if(!menuData[cat]) menuData[cat] = [];
+            menuData[cat].push({ name: name, price: price });
+            
+            document.getElementById('new-item-name').value = '';
+            document.getElementById('new-item-price').value = '';
+            renderAdminMenuEditor();
+            renderAdminCategories();
+            saveDataToStorage();
+        }
+
+        function downloadCSV(filename, content) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function endOfDay() {
+            if (allDailyOrders.length === 0) {
+                alert("No bills generated today to export.");
+                return;
+            }
+
+            const dateStr = new Date().toISOString().split('T')[0];
+            let detailedCSV = "OrderID,Date,Time,Table,CustomerName,CustomerPhone,PaymentMode,ItemName,Quantity,Price,Discount,Total\n";
+            let itemSummary = {};
+            let grandTotalRev = 0;
+
+            allDailyOrders.forEach(o => {
+                detailedCSV += `${o.orderId},${o.date},${o.time},${o.table},"${o.customerName}","${o.customerPhone}","${o.paymentMode}","${o.itemName}",${o.qty},${o.price},${o.discount},${o.total}\n`;
+                if(!itemSummary[o.itemName]) itemSummary[o.itemName] = { qty: 0, revenue: 0 };
+                itemSummary[o.itemName].qty += o.qty;
+                itemSummary[o.itemName].revenue += parseFloat(o.total);
+                grandTotalRev += parseFloat(o.total);
+            });
+
+            let summaryCSV = "ItemName,Total Quantity Sold,Total Revenue\n";
+            for (const [itemName, data] of Object.entries(itemSummary)) {
+                summaryCSV += `"${itemName}",${data.qty},${data.revenue.toFixed(2)}\n`;
+            }
+            summaryCSV += `\nGRAND TOTAL,,${grandTotalRev.toFixed(2)}\n`;
+
+            downloadCSV(`Setu_Detailed_Log_${dateStr}.csv`, detailedCSV);
+            setTimeout(() => {
+                downloadCSV(`Setu_Daily_Summary_${dateStr}.csv`, summaryCSV);
+                alert("Day Closed! CSV sales logs with discount columns downloaded successfully.");
+            }, 800);
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
