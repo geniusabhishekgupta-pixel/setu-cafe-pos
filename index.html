@@ -133,6 +133,7 @@
         .sub-action-btns { display: flex; gap: 4px; margin-bottom: 4px; }
         .sub-action-btns button { flex: 1; padding: 6px; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; background: #8e44ad; }
         .btn-clear { background-color: #e74c3c; width: 100%; padding: 5px; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; }
+        .btn-clear:disabled { background-color: #95a5a6; cursor: not-allowed; opacity: 0.7; }
 
         /* Secure PIN Modal & Admin Panel Overlay */
         .modal-overlay {
@@ -168,34 +169,53 @@
         .form-inline-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
         .form-inline-row input, .form-inline-row select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
 
-        /* Thermal Printer Styles */
+        /* Thermal Printer Styles - Strictly Single Page Engine */
         #print-area { display: none; }
         
         @media print {
-            body, html { visibility: hidden; height: auto; background: white; }
-            #print-area, #print-area * { visibility: visible; }
+            @page {
+                size: 80mm auto;
+                margin: 0mm;
+            }
+            body, html {
+                visibility: hidden;
+                width: 80mm;
+                height: auto;
+                background: white;
+                margin: 0;
+                padding: 0;
+            }
+            #print-area, #print-area * {
+                visibility: visible;
+            }
             #print-area {
                 display: block !important;
-                position: absolute; left: 0; top: 0; width: 80mm;
-                margin: 0; padding: 5mm;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 76mm;
+                margin: 2mm;
+                padding: 0;
                 font-family: 'Courier New', Courier, monospace;
-                color: black; background: white; z-index: 99999;
+                color: black;
+                background: white;
+                z-index: 99999;
             }
             .is-kot .hide-on-kot { display: none !important; }
-            .is-kot .kot-text { font-size: 16px; font-weight: bold; text-align: center; border: 2px solid black; padding: 4px; margin-bottom: 8px; }
-            .is-kot td { font-size: 13px; font-weight: bold; padding: 3px 0; border-bottom: 1px dashed black;}
+            .is-kot .kot-text { font-size: 15px; font-weight: bold; text-align: center; border: 2px solid black; padding: 3px; margin-bottom: 6px; }
+            .is-kot td { font-size: 12px; font-weight: bold; padding: 2px 0; border-bottom: 1px dashed black;}
             
-            .receipt-header { text-align: center; margin-bottom: 8px; }
-            .receipt-logo { width: 64px; height: 64px; object-fit: contain; margin: 0 auto 4px auto; display: block; border-radius: 50%; }
-            .receipt-header h3 { margin: 0; font-size: 16px; font-weight: bold; }
-            .receipt-header p { margin: 2px 0; font-size: 11px; }
-            .receipt-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 12px; }
-            .receipt-table th, .receipt-table td { text-align: left; padding: 3px 0; border-bottom: 1px dashed #000; }
+            .receipt-header { text-align: center; margin-bottom: 6px; }
+            .receipt-logo { width: 48px; height: 48px; object-fit: contain; margin: 0 auto 2px auto; display: block; border-radius: 50%; }
+            .receipt-header h3 { margin: 0; font-size: 15px; font-weight: bold; }
+            .receipt-header p { margin: 1px 0; font-size: 10px; }
+            .receipt-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 11px; }
+            .receipt-table th, .receipt-table td { text-align: left; padding: 2px 0; border-bottom: 1px dashed #000; }
             .receipt-table th:last-child, .receipt-table td:last-child { text-align: right; }
-            .receipt-totals-box { border-top: 1px solid black; margin-top: 5px; padding-top: 5px; font-size: 12px; }
-            .receipt-total-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-            .receipt-total-row.grand { font-weight: bold; font-size: 14px; }
-            .receipt-footer { text-align: center; margin-top: 10px; font-size: 10px; }
+            .receipt-totals-box { border-top: 1px solid black; margin-top: 4px; padding-top: 4px; font-size: 11px; }
+            .receipt-total-row { display: flex; justify-content: space-between; margin-bottom: 1px; }
+            .receipt-total-row.grand { font-weight: bold; font-size: 13px; }
+            .receipt-footer { text-align: center; margin-top: 6px; font-size: 9px; }
         }
 
         /* Mobile Responsive Layout Fix */
@@ -307,7 +327,7 @@
             <button onclick="openShiftTableModal()" style="width: 100%;">🔄 Shift Table</button>
         </div>
 
-        <button class="btn-clear" onclick="clearOrder()">Clear / Reset Order</button>
+        <button class="btn-clear" id="btn-clear" onclick="clearOrder()">Clear / Reset Order</button>
     </div>
 
     <!-- Hidden PIN Modal Overlay -->
@@ -639,6 +659,8 @@
                 existing.qty += 1;
                 if (currentOrderStatus === 'KOT_PRINTED') {
                     existing.unprintedQty = (existing.unprintedQty || 0) + 1;
+                    // If adding new quantities to a previously printed item, reset status to CONFIRMED so it requires re-confirmation & add-on KOT
+                    currentOrderStatus = 'CONFIRMED';
                 }
             } else {
                 currentOrder.push({ 
@@ -648,6 +670,9 @@
                     printedQty: currentOrderStatus === 'KOT_PRINTED' ? 0 : 1,
                     unprintedQty: currentOrderStatus === 'KOT_PRINTED' ? 1 : 0
                 });
+                if (currentOrderStatus === 'KOT_PRINTED') {
+                    currentOrderStatus = 'CONFIRMED';
+                }
             }
             
             updateOrderUI();
@@ -657,9 +682,9 @@
 
         function updateQty(index, delta) {
             let item = currentOrder[index];
+            let alreadyPrinted = item.printedQty || 0;
 
             if (currentOrderStatus === 'KOT_PRINTED') {
-                let alreadyPrinted = item.printedQty || 0;
                 let currentTotalQty = item.qty;
                 let newTotalQty = currentTotalQty + delta;
 
@@ -675,6 +700,9 @@
 
                 if (item.qty <= 0) {
                     currentOrder.splice(index, 1);
+                }
+                if (delta > 0) {
+                    currentOrderStatus = 'CONFIRMED';
                 }
             } else {
                 item.qty += delta;
@@ -721,7 +749,8 @@
                 let itemTotal = item.price * item.qty;
                 subtotal += itemTotal;
                 
-                let isLockedDown = (currentOrderStatus === 'KOT_PRINTED' && item.qty <= (item.printedQty || 0));
+                let alreadyPrinted = item.printedQty || 0;
+                let isLockedDown = (currentOrderStatus === 'KOT_PRINTED' && item.qty <= alreadyPrinted);
 
                 list.innerHTML += `
                     <div class="order-item">
@@ -749,6 +778,10 @@
             if(currentOrderStatus === 'DRAFT') badge.style.background = '#e0e0e0';
             else if(currentOrderStatus === 'CONFIRMED') badge.style.background = '#f39c12', badge.style.color = 'white';
             else if(currentOrderStatus === 'KOT_PRINTED') badge.style.background = '#27ae60', badge.style.color = 'white';
+
+            // Lock Clear button if order is confirmed or KOT printed
+            const btnClear = document.getElementById('btn-clear');
+            btnClear.disabled = (currentOrderStatus !== 'DRAFT');
 
             saveCurrentToActiveOrdersState();
         }
@@ -787,6 +820,10 @@
         }
 
         function clearOrder() {
+            if (currentOrderStatus !== 'DRAFT') {
+                alert("Confirmed or KOT-printed orders cannot be cleared directly. Complete the billing or use Admin tools.");
+                return;
+            }
             const tableNo = document.getElementById('table-no').value.trim();
             if (tableNo && activeOpenOrders[tableNo]) {
                 delete activeOpenOrders[tableNo];
@@ -923,7 +960,7 @@
                         <div class="receipt-total-row"><span>Subtotal:</span><span>Rs. ${subtotal}</span></div>
                         ${discountAmt > 0 ? `<div class="receipt-total-row"><span>Discount (${discPct}\%):</span><span>- Rs.${discountAmt.toFixed(2)}</span></div>` : ''}
                         <div class="receipt-total-row grand"><span>Grand Total:</span><span>Rs. ${finalTotal}</span></div>
-                        <div class="receipt-total-row" style="margin-top: 4px; font-weight: bold;"><span>Payment Mode:</span><span>${paymentMode}</span></div>
+                        <div class="receipt-total-row" style="margin-top: 3px; font-weight: bold;"><span>Payment Mode:</span><span>${paymentMode}</span></div>
                     </div>
                     <div class="receipt-footer hide-on-kot">
                         <p>Thank you for visiting Setu Cafe!</p>
@@ -961,7 +998,14 @@
             window.print();
 
             if (type === 'BILL') {
-                clearOrder();
+                currentOrder = [];
+                currentOrderStatus = 'DRAFT';
+                document.getElementById('table-no').value = '';
+                document.getElementById('cust-name').value = '';
+                document.getElementById('cust-phone').value = '';
+                document.getElementById('discount-select').value = '';
+                updateOrderUI();
+                updateWorkflowButtons();
             }
             renderOpenOrdersUI();
         }
