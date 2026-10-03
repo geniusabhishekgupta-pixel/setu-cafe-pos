@@ -197,33 +197,43 @@
             .receipt-total-row.grand { font-weight: bold; font-size: 14px; }
             .receipt-footer { text-align: center; margin-top: 10px; font-size: 10px; }
         }
-.receipt-footer { text-align: center; margin-top: 10px; font-size: 10px; }
-        }
 
-        /* Mobile Responsive Layout */
+        /* Mobile Responsive Layout Fix */
         @media (max-width: 768px) {
-            body { 
-                flex-direction: column; 
-                height: 100vh; 
-                overflow-y: auto; 
+            html, body {
+                height: auto !important;
+                min-height: 100% !important;
+                overflow-x: hidden !important;
+                overflow-y: auto !important;
+                flex-direction: column !important;
             }
-            .left-panel { 
-                flex: none; 
-                width: 100%; 
-                height: 55vh; 
-                border-right: none; 
-                border-bottom: 3px solid #7c2d2d; 
+
+            .left-panel {
+                flex: none !important;
+                width: 100% !important;
+                height: auto !important;
+                border-right: none !important;
+                border-bottom: 3px solid var(--primary) !important;
             }
-            .right-panel { 
-                flex: none; 
-                width: 100%; 
-                height: auto; 
-                box-sizing: border-box; 
+
+            .items-container {
+                max-height: 45vh !important;
+                overflow-y: auto !important;
+            }
+
+            .right-panel {
+                flex: none !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow-y: visible !important;
+                box-sizing: border-box !important;
+                padding: 15px !important;
+            }
+
+            .order-list {
+                max-height: 180px !important;
             }
         }
-    </style>
-</head>
-<body>
     </style>
 </head>
 <body>
