@@ -105,9 +105,9 @@
         .input-row { display: flex; gap: 8px; }
         .input-row .input-group { flex: 1; }
 
-        .order-list { flex-grow: 1; overflow-y: auto; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; margin-bottom: 6px; padding: 4px 0; max-height: 110px; }
-        .order-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding: 2px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
-        .qty-controls button { background: var(--primary); color: white; border: none; padding: 2px 5px; border-radius: 3px; cursor: pointer; font-size: 12px; margin: 0 2px; }
+        .order-list { flex-grow: 1; overflow-y: auto; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; margin-bottom: 6px; padding: 4px 0; max-height: 140px; }
+        .order-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding: 4px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
+        .qty-controls button { background: var(--primary); color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 12px; margin: 0 2px; }
         .qty-controls button:disabled { background: #bdc3c7; cursor: not-allowed; }
         
         .totals-section { background: #fdfbf7; padding: 6px; border-radius: 4px; border: 1px solid #eee; margin-bottom: 6px; }
@@ -514,7 +514,6 @@
         let allDailyOrders = JSON.parse(localStorage.getItem('setu_allDailyOrders')) || []; 
         let activeOpenOrders = JSON.parse(localStorage.getItem('setu_activeOpenOrders')) || {}; 
         let currentCategory = Object.keys(menuData)[0];
-        let currentOrderStatus = 'DRAFT'; // 'DRAFT' -> 'CONFIRMED' -> 'KOT_PRINTED'
         let dailyOrderCounters = JSON.parse(localStorage.getItem('setu_dailyCounters')) || {}; 
 
         function saveDataToStorage() {
@@ -596,14 +595,26 @@
 
             if (activeOpenOrders[tableNo]) {
                 let existing = activeOpenOrders[tableNo];
-                currentOrder = JSON.parse(JSON.stringify(existing.items));
+                currentOrder = JSON.parse(JSON.stringify(existing.items || []));
+                
+                currentOrder.forEach((item, idx) => {
+                    if (!item.id) item.id = 'item_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).substr(2, 4);
+                    if (!item.status) {
+                        if (item.printedQty > 0 || existing.orderStatus === 'KOT_PRINTED') {
+                            item.status = 'KOT_PRINTED';
+                        } else if (existing.orderStatus === 'CONFIRMED') {
+                            item.status = 'CONFIRMED';
+                        } else {
+                            item.status = 'DRAFT';
+                        }
+                    }
+                });
+
                 document.getElementById('cust-name').value = existing.custName || '';
                 document.getElementById('cust-phone').value = existing.custPhone || '';
                 document.getElementById('discount-select').value = existing.discountPct || '';
-                currentOrderStatus = existing.orderStatus || 'DRAFT';
             } else {
                 currentOrder = [];
-                currentOrderStatus = 'DRAFT';
                 document.getElementById('cust-name').value = '';
                 document.getElementById('cust-phone').value = '';
                 document.getElementById('discount-select').value = '';
@@ -627,7 +638,8 @@
             tableKeys.forEach(tableNo => {
                 let chip = document.createElement('span');
                 chip.className = 'open-table-chip';
-                chip.innerText = `Table ${tableNo} [${activeOpenOrders[tableNo].orderStatus}]`;
+                let statusText = activeOpenOrders[tableNo].orderStatus || 'DRAFT';
+                chip.innerText = `Table ${tableNo} [${statusText}]`;
                 chip.title = `Click to load Table ${tableNo}`;
                 chip.onclick = () => {
                     document.getElementById('table-no').value = tableNo;
@@ -654,25 +666,23 @@
                 priceToUse = parseFloat(customPrice);
             }
 
-            const existing = currentOrder.find(i => i.name === item.name && i.price === priceToUse);
-            if (existing) {
-                existing.qty += 1;
-                if (currentOrderStatus === 'KOT_PRINTED') {
-                    existing.unprintedQty = (existing.unprintedQty || 0) + 1;
-                    // If adding new quantities to a previously printed item, reset status to CONFIRMED so it requires re-confirmation & add-on KOT
-                    currentOrderStatus = 'CONFIRMED';
-                }
+            // Only combine quantity if there is an existing DRAFT entry for this exact item
+            const existingDraft = currentOrder.find(i => i.name === item.name && i.price === priceToUse && i.status === 'DRAFT');
+            
+            if (existingDraft) {
+                existingDraft.qty += 1;
+                existingDraft.unprintedQty = existingDraft.qty;
             } else {
-                currentOrder.push({ 
-                    name: item.name, 
-                    price: priceToUse, 
-                    qty: 1, 
-                    printedQty: currentOrderStatus === 'KOT_PRINTED' ? 0 : 1,
-                    unprintedQty: currentOrderStatus === 'KOT_PRINTED' ? 1 : 0
+                // Otherwise add as a new line item
+                currentOrder.push({
+                    id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    name: item.name,
+                    price: priceToUse,
+                    qty: 1,
+                    status: 'DRAFT',
+                    printedQty: 0,
+                    unprintedQty: 1
                 });
-                if (currentOrderStatus === 'KOT_PRINTED') {
-                    currentOrderStatus = 'CONFIRMED';
-                }
             }
             
             updateOrderUI();
@@ -680,48 +690,45 @@
             updateWorkflowButtons();
         }
 
-        function updateQty(index, delta) {
-            let item = currentOrder[index];
-            let alreadyPrinted = item.printedQty || 0;
+        function updateQty(id, delta) {
+            let item = currentOrder.find(i => i.id === id);
+            if (!item) return;
 
-            if (currentOrderStatus === 'KOT_PRINTED') {
-                let currentTotalQty = item.qty;
-                let newTotalQty = currentTotalQty + delta;
+            if (item.status !== 'DRAFT') {
+                alert("Confirmed or printed items cannot be altered or deleted!");
+                return;
+            }
 
-                if (newTotalQty < alreadyPrinted) {
-                    alert("Cannot decrease quantity below what has already been sent to the kitchen!");
-                    return;
-                }
-                
-                let diff = delta;
-                item.qty = newTotalQty;
-                item.unprintedQty = (item.unprintedQty || 0) + diff;
-                if(item.unprintedQty < 0) item.unprintedQty = 0;
+            item.qty += delta;
+            item.unprintedQty = item.qty;
 
-                if (item.qty <= 0) {
-                    currentOrder.splice(index, 1);
-                }
-                if (delta > 0) {
-                    currentOrderStatus = 'CONFIRMED';
-                }
-            } else {
-                item.qty += delta;
-                if (item.qty <= 0) {
-                    currentOrder.splice(index, 1);
-                }
+            if (item.qty <= 0) {
+                currentOrder = currentOrder.filter(i => i.id !== id);
             }
 
             updateOrderUI();
             saveCurrentToActiveOrdersState();
             updateWorkflowButtons();
+        }
+
+        function getOverallOrderStatus() {
+            if (currentOrder.length === 0) return 'DRAFT';
+            const hasDraft = currentOrder.some(i => i.status === 'DRAFT');
+            const hasConfirmed = currentOrder.some(i => i.status === 'CONFIRMED');
+            const hasKotPrinted = currentOrder.some(i => i.status === 'KOT_PRINTED');
+
+            if (hasDraft) return 'DRAFT';
+            if (hasConfirmed) return 'CONFIRMED';
+            if (hasKotPrinted) return 'KOT_PRINTED';
+            return 'DRAFT';
         }
 
         function saveCurrentToActiveOrdersState() {
             const tableNo = document.getElementById('table-no').value.trim();
-            if(!tableNo) return;
+            if (!tableNo) return;
             
-            if(currentOrder.length === 0) {
-                if(activeOpenOrders[tableNo]) {
+            if (currentOrder.length === 0) {
+                if (activeOpenOrders[tableNo]) {
                     delete activeOpenOrders[tableNo];
                     saveDataToStorage();
                 }
@@ -729,12 +736,14 @@
                 return;
             }
 
+            const overallStatus = getOverallOrderStatus();
+
             activeOpenOrders[tableNo] = {
                 items: JSON.parse(JSON.stringify(currentOrder)),
                 custName: document.getElementById('cust-name').value.trim(),
                 custPhone: document.getElementById('cust-phone').value.trim(),
                 discountPct: document.getElementById('discount-select').value,
-                orderStatus: currentOrderStatus
+                orderStatus: overallStatus
             };
             saveDataToStorage();
             renderOpenOrdersUI();
@@ -745,22 +754,42 @@
             list.innerHTML = '';
             let subtotal = 0;
 
-            currentOrder.forEach((item, index) => {
+            currentOrder.forEach((item) => {
                 let itemTotal = item.price * item.qty;
                 subtotal += itemTotal;
                 
-                let alreadyPrinted = item.printedQty || 0;
-                let isLockedDown = (currentOrderStatus === 'KOT_PRINTED' && item.qty <= alreadyPrinted);
+                let statusBadge = '';
+                let controlsHTML = '';
+
+                if (item.status === 'CONFIRMED') {
+                    statusBadge = `<span style="background:#f39c12; color:white; padding:2px 5px; border-radius:3px; font-size:10px; font-weight:bold; margin-left:4px;">Confirmed</span>`;
+                    controlsHTML = `<span style="font-size:11px; color:#f39c12; font-weight:bold;">x${item.qty} (Locked)</span>`;
+                } else if (item.status === 'KOT_PRINTED') {
+                    statusBadge = `<span style="background:#27ae60; color:white; padding:2px 5px; border-radius:3px; font-size:10px; font-weight:bold; margin-left:4px;">KOT Sent</span>`;
+                    controlsHTML = `<span style="font-size:11px; color:#27ae60; font-weight:bold;">x${item.qty} (Locked)</span>`;
+                } else {
+                    statusBadge = `<span style="background:#e74c3c; color:white; padding:2px 5px; border-radius:3px; font-size:10px; font-weight:bold; margin-left:4px;">New</span>`;
+                    controlsHTML = `
+                        <div class="qty-controls" style="display:inline-flex; align-items:center; gap:2px;">
+                            <button onclick="updateQty('${item.id}', -1)">-</button>
+                            <span style="font-weight:bold; padding:0 4px;">${item.qty}</span>
+                            <button onclick="updateQty('${item.id}', 1)">+</button>
+                        </div>
+                    `;
+                }
 
                 list.innerHTML += `
-                    <div class="order-item">
-                        <div style="flex:2">${item.name} ${item.unprintedQty > 0 ? '<span style="color:#d35400; font-size:10px; font-weight:bold;">(New)</span>' : ''}<br><small>₹${item.price}</small></div>
-                        <div class="qty-controls" style="flex:1; text-align:center;">
-                            <button onclick="updateQty(${index}, -1)" ${isLockedDown ? 'disabled' : ''}>-</button>
-                            ${item.qty}
-                            <button onclick="updateQty(${index}, 1)">+</button>
+                    <div class="order-item" style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px dashed #eee;">
+                        <div style="flex:2">
+                            <strong>${item.name}</strong> ${statusBadge}<br>
+                            <small style="color:#666;">₹${item.price} each</small>
                         </div>
-                        <div style="flex:1; text-align:right;">₹${itemTotal}</div>
+                        <div style="flex:1.2; text-align:center;">
+                            ${controlsHTML}
+                        </div>
+                        <div style="flex:1; text-align:right; font-weight:bold;">
+                            ₹${itemTotal}
+                        </div>
                     </div>
                 `;
             });
@@ -774,14 +803,33 @@
             document.getElementById('grand-total').innerText = Math.round(grandTotal);
 
             const badge = document.getElementById('status-badge');
-            badge.innerText = `[${currentOrderStatus}]`;
-            if(currentOrderStatus === 'DRAFT') badge.style.background = '#e0e0e0';
-            else if(currentOrderStatus === 'CONFIRMED') badge.style.background = '#f39c12', badge.style.color = 'white';
-            else if(currentOrderStatus === 'KOT_PRINTED') badge.style.background = '#27ae60', badge.style.color = 'white';
+            const overallStatus = getOverallOrderStatus();
+            badge.innerText = `[${overallStatus}]`;
+            if (overallStatus === 'DRAFT') {
+                badge.style.background = '#e74c3c';
+                badge.style.color = 'white';
+            } else if (overallStatus === 'CONFIRMED') {
+                badge.style.background = '#f39c12';
+                badge.style.color = 'white';
+            } else if (overallStatus === 'KOT_PRINTED') {
+                badge.style.background = '#27ae60';
+                badge.style.color = 'white';
+            }
 
-            // Lock Clear button if order is confirmed or KOT printed
             const btnClear = document.getElementById('btn-clear');
-            btnClear.disabled = (currentOrderStatus !== 'DRAFT');
+            const hasDraft = currentOrder.some(i => i.status === 'DRAFT');
+            const hasConfirmedOrPrinted = currentOrder.some(i => i.status === 'CONFIRMED' || i.status === 'KOT_PRINTED');
+
+            if (hasDraft && hasConfirmedOrPrinted) {
+                btnClear.innerText = 'Clear Unconfirmed Additions';
+                btnClear.disabled = false;
+            } else if (hasDraft && !hasConfirmedOrPrinted) {
+                btnClear.innerText = 'Clear / Reset Order';
+                btnClear.disabled = false;
+            } else {
+                btnClear.innerText = 'Clear / Reset Order';
+                btnClear.disabled = !hasDraft;
+            }
 
             saveCurrentToActiveOrdersState();
         }
@@ -791,83 +839,108 @@
             const btnKot = document.getElementById('btn-kot');
             const btnPrintBill = document.getElementById('btn-print-bill');
 
-            if (currentOrderStatus === 'DRAFT') {
-                btnConfirm.disabled = (currentOrder.length === 0);
-                btnKot.disabled = true;
-                btnPrintBill.disabled = true;
-            } else if (currentOrderStatus === 'CONFIRMED') {
-                btnConfirm.disabled = true;
-                btnKot.disabled = false;
-                btnPrintBill.disabled = true;
-            } else if (currentOrderStatus === 'KOT_PRINTED') {
-                btnConfirm.disabled = true;
-                let hasUnprintedAdditions = currentOrder.some(i => (i.unprintedQty || 0) > 0);
-                btnKot.disabled = !hasUnprintedAdditions;
-                btnKot.innerText = hasUnprintedAdditions ? '2. Print Add-on KOT' : '2. Print KOT';
-                btnPrintBill.disabled = false;
+            const hasDraft = currentOrder.some(i => i.status === 'DRAFT');
+            const hasConfirmed = currentOrder.some(i => i.status === 'CONFIRMED');
+            const hasKotPrinted = currentOrder.some(i => i.status === 'KOT_PRINTED');
+
+            btnConfirm.disabled = !hasDraft;
+            if (hasDraft && hasKotPrinted) {
+                btnConfirm.innerText = '1. Confirm Additions';
+            } else {
+                btnConfirm.innerText = '1. Confirm';
             }
+
+            btnKot.disabled = hasDraft || !hasConfirmed;
+            if (hasKotPrinted && hasConfirmed) {
+                btnKot.innerText = '2. Print Add-on KOT';
+            } else {
+                btnKot.innerText = '2. Print KOT';
+            }
+
+            btnPrintBill.disabled = (currentOrder.length === 0) || hasDraft || hasConfirmed || !hasKotPrinted;
         }
 
         function confirmOrder() {
-            if (currentOrder.length === 0) {
-                alert("Order is empty!");
+            const draftItems = currentOrder.filter(i => i.status === 'DRAFT');
+            if (draftItems.length === 0) {
+                alert("No new items to confirm!");
                 return;
             }
-            currentOrderStatus = 'CONFIRMED';
+
+            draftItems.forEach(item => {
+                item.status = 'CONFIRMED';
+            });
+
             updateOrderUI();
+            saveCurrentToActiveOrdersState();
             updateWorkflowButtons();
-            alert("Order confirmed! Items are now locked. You can now print the KOT.");
+            alert("New items confirmed! They are now locked and ready for KOT printing.");
         }
 
         function clearOrder() {
-            if (currentOrderStatus !== 'DRAFT') {
-                alert("Confirmed or KOT-printed orders cannot be cleared directly. Complete the billing or use Admin tools.");
+            const hasDraftItems = currentOrder.some(i => i.status === 'DRAFT');
+            const hasConfirmedOrPrinted = currentOrder.some(i => i.status === 'CONFIRMED' || i.status === 'KOT_PRINTED');
+
+            if (!hasDraftItems) {
+                if (hasConfirmedOrPrinted) {
+                    alert("There are no pending draft items to clear. Confirmed items cannot be deleted directly.");
+                } else {
+                    const tableNo = document.getElementById('table-no').value.trim();
+                    if (tableNo && activeOpenOrders[tableNo]) {
+                        delete activeOpenOrders[tableNo];
+                        saveDataToStorage();
+                    }
+                    resetOrderForm();
+                }
                 return;
             }
-            const tableNo = document.getElementById('table-no').value.trim();
-            if (tableNo && activeOpenOrders[tableNo]) {
-                delete activeOpenOrders[tableNo];
-                saveDataToStorage();
-            }
+
+            // Remove only draft items, keeping confirmed/printed items completely safe
+            currentOrder = currentOrder.filter(i => i.status !== 'DRAFT');
+
+            updateOrderUI();
+            saveCurrentToActiveOrdersState();
+            updateWorkflowButtons();
+            renderOpenOrdersUI();
+        }
+
+        function resetOrderForm() {
             currentOrder = [];
-            currentOrderStatus = 'DRAFT';
             document.getElementById('table-no').value = '';
             document.getElementById('cust-name').value = '';
             document.getElementById('cust-phone').value = '';
             document.getElementById('discount-select').value = '';
             updateOrderUI();
             updateWorkflowButtons();
-            renderOpenOrdersUI();
         }
 
         function printReceipt(type) {
-            if(type === 'KOT') {
-                if (currentOrderStatus === 'CONFIRMED') {
-                    currentOrderStatus = 'KOT_PRINTED';
-                    currentOrder.forEach(item => {
-                        item.printedQty = item.qty;
-                        item.unprintedQty = 0;
-                    });
-                    updateOrderUI();
-                    updateWorkflowButtons();
-                    executePrint('KOT', '', false);
-                } else if (currentOrderStatus === 'KOT_PRINTED') {
-                    executePrint('KOT', '', true);
-                    currentOrder.forEach(item => {
-                        item.printedQty = item.qty;
-                        item.unprintedQty = 0;
-                    });
-                    updateOrderUI();
-                    updateWorkflowButtons();
+            if (type === 'KOT') {
+                const hasKotPrinted = currentOrder.some(i => i.status === 'KOT_PRINTED');
+                const confirmedItems = currentOrder.filter(i => i.status === 'CONFIRMED');
+
+                if (confirmedItems.length === 0) {
+                    alert("No confirmed items to print on KOT!");
+                    return;
                 }
+
+                executePrint('KOT', '', hasKotPrinted);
             }
         }
 
         function initiateBillPrint() {
-            if (currentOrderStatus !== 'KOT_PRINTED') {
-                alert("You must print KOT before printing the bill!");
+            const hasDraft = currentOrder.some(i => i.status === 'DRAFT');
+            const hasConfirmed = currentOrder.some(i => i.status === 'CONFIRMED');
+
+            if (hasDraft) {
+                alert("You have unconfirmed items! Please confirm them first.");
                 return;
             }
+            if (hasConfirmed) {
+                alert("You have confirmed items waiting for KOT! Please print KOT before generating the bill.");
+                return;
+            }
+
             const tableNo = document.getElementById('table-no').value.trim();
             if (!tableNo) {
                 alert("Table number is mandatory!");
@@ -915,13 +988,25 @@
                 orderId = `${dateKey}_KOT`;
             }
 
+            let itemsToPrint = [];
+            if (type === 'KOT') {
+                itemsToPrint = currentOrder.filter(i => i.status === 'CONFIRMED');
+            } else {
+                itemsToPrint = currentOrder;
+            }
+
             let subtotal = 0;
             printArea.className = type === 'KOT' ? 'is-kot' : 'is-bill';
+
+            let titleText = 'KOT';
+            if (type === 'KOT') {
+                titleText = isAddonKOT ? 'ADD-ON KOT' : 'KOT';
+            }
 
             let receiptHTML = `
                 <div class="receipt-header">
                     ${type === 'BILL' ? `<img src="logo.png" class="receipt-logo" alt="Setu Cafe Logo" onerror="this.onerror=null; this.src='logo.jpg';">` : ''}
-                    ${type === 'KOT' ? `<div class="kot-text">${isAddonKOT ? 'ADD-ON KOT' : 'KOT'} - TABLE ${tableNo}</div>` : `<h3>SETU CAFE</h3><p>Laxman Jhula, Rishikesh</p>`}
+                    ${type === 'KOT' ? `<div class="kot-text">${titleText} - TABLE${tableNo}</div>` : `<h3>SETU CAFE</h3><p>Laxman Jhula, Rishikesh</p>`}
                     <p class="hide-on-kot">Table: ${tableNo} ${custName ? '| ' + custName : ''} ${custPhone ? '(' + custPhone + ')' : ''}</p>
                     <p class="hide-on-kot">Time: ${orderDate.toLocaleTimeString()} | ID: ${orderId}</p>
                 </div>
@@ -933,18 +1018,15 @@
                     </tr>
             `;
 
-            currentOrder.forEach(item => {
-                let targetQty = type === 'KOT' && isAddonKOT ? (item.unprintedQty || 0) : item.qty;
-                if (targetQty <= 0 && type === 'KOT' && isAddonKOT) return;
-
-                let rowAmt = item.price * (type === 'KOT' && isAddonKOT ? targetQty : item.qty);
-                if(type === 'BILL') subtotal += item.price * item.qty;
+            itemsToPrint.forEach(item => {
+                let rowAmt = item.price * item.qty;
+                if (type === 'BILL') subtotal += rowAmt;
 
                 receiptHTML += `
                     <tr>
                         <td>${item.name}</td>
-                        <td style="text-align:center">${targetQty}</td>
-                        <td class="hide-on-kot">${type === 'BILL' ? item.price * item.qty : rowAmt}</td>
+                        <td style="text-align:center">${item.qty}</td>
+                        <td class="hide-on-kot">${rowAmt}</td>
                     </tr>`;
             });
 
@@ -997,15 +1079,16 @@
             printArea.innerHTML = receiptHTML;
             window.print();
 
-            if (type === 'BILL') {
-                currentOrder = [];
-                currentOrderStatus = 'DRAFT';
-                document.getElementById('table-no').value = '';
-                document.getElementById('cust-name').value = '';
-                document.getElementById('cust-phone').value = '';
-                document.getElementById('discount-select').value = '';
+            if (type === 'KOT') {
+                itemsToPrint.forEach(item => {
+                    item.status = 'KOT_PRINTED';
+                    item.printedQty = item.qty;
+                    item.unprintedQty = 0;
+                });
                 updateOrderUI();
                 updateWorkflowButtons();
+            } else if (type === 'BILL') {
+                resetOrderForm();
             }
             renderOpenOrdersUI();
         }
